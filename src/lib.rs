@@ -68,21 +68,19 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                     continue;
                 }
 
-                if let Some(sec) = current.as_mut() {
-                    if !sec.body_text.is_empty() {
-                        //sec.body_text.push_str("\n\n");
-                    }
-                    sec.body_text.push(text);
-                } else {
-                    // Content before the first heading -> preamble section
-                    let preamble = Section {
-                        title: String::from("(preamble)"),
-                        level: 0,
-                        body_text: vec![text],
-                        code_blocks: Vec::new(),
-                    };
-                    current = Some(preamble);
+                let sec = current.get_or_insert_with(|| Section {
+                    title: String::from("(preamble)"),
+                    level: 0,
+                    body_text: Vec::new(),
+                    code_blocks: Vec::new(),
+                });
+
+                if !sec.body_text.is_empty() {
+                    //sec.body_text.push_str("\n\n");
                 }
+                sec.body_text.push(text);
+
+                collect_inline_code_blocks(node, &mut sec.code_blocks);
             }
 
             // === Top-level fenced code blocks ===
@@ -104,6 +102,27 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                             meta: code.meta.clone(),
                             value: code.value.clone(),
                         }],
+                    };
+                    current = Some(sec);
+                }
+            }
+
+            // === Inline code is indexed like fenced code ===
+            mdast::Node::InlineCode(code) => {
+                let inline_block = CodeBlock {
+                    lang: None,
+                    meta: None,
+                    value: code.value.clone(),
+                };
+
+                if let Some(sec) = current.as_mut() {
+                    sec.code_blocks.push(inline_block);
+                } else {
+                    let sec = Section {
+                        title: String::from("(preamble)"),
+                        level: 0,
+                        body_text: Vec::new(),
+                        code_blocks: vec![inline_block],
                     };
                     current = Some(sec);
                 }
@@ -132,7 +151,6 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
             // Phrasing / inline-like nodes (normally don’t show up at root,
             // but we handle them anyway to make the match exhaustive):
             | mdast::Node::Break(_)
-            | mdast::Node::InlineCode(_)
             | mdast::Node::InlineMath(_)
             | mdast::Node::Delete(_)
             | mdast::Node::Emphasis(_)
@@ -186,6 +204,23 @@ fn node_to_plain_text(node: &mdast::Node) -> String {
     let mut out = String::new();
     collect_text(node, &mut out);
     out
+}
+
+fn collect_inline_code_blocks(node: &mdast::Node, out: &mut Vec<CodeBlock>) {
+    match node {
+        mdast::Node::InlineCode(code) => out.push(CodeBlock {
+            lang: None,
+            meta: None,
+            value: code.value.clone(),
+        }),
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    collect_inline_code_blocks(child, out);
+                }
+            }
+        }
+    }
 }
 
 fn collect_text(node: &mdast::Node, out: &mut String) {
@@ -345,5 +380,28 @@ This is *bold* and `inline_code` and a [link](https://example.com).
         assert!(body[0].contains(&"bold".to_string()), "{:?}", body);
         assert!(body[0].contains(&"inline_code".to_string()));
         assert!(body[0].contains(&"link".to_string()));
+    }
+
+    #[test]
+    fn inline_code_is_captured_as_code_blocks() {
+        let src = r#"
+# Title
+
+Paragraph with `first` inline code and `second` snippet.
+        "#;
+
+        let sections = index_markdown(src).expect("parse ok");
+
+        assert_eq!(sections.len(), 1);
+        let s = &sections[0];
+
+        let inline_values: Vec<&str> = s
+            .code_blocks
+            .iter()
+            .map(|cb| cb.value.as_str())
+            .collect();
+
+        assert!(inline_values.contains(&"first"));
+        assert!(inline_values.contains(&"second"));
     }
 }
