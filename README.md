@@ -14,16 +14,18 @@ The compiled binary will be available at `target/release/mdparser-exp`.
 
 ## Usage
 
-From the repository root run the CLI with a markdown file or directory as the first argument:
+From the repository root run the CLI with one or more markdown files or directories as positional arguments:
 
 ```bash
-cargo run -- <input_path> [--depth N]
+cargo run -- <input1> [input2 ...] [--depth N]
 ```
 
-- `<input_path>` can be a single `.md`/`.markdown` file or a directory containing markdown files.
-- `--depth N` (or `-d N`) is optional and limits how deep the directory traversal should recurse. When omitted, traversal is unbounded.
+- Each input can be a `.md`/`.markdown` file or a directory containing markdown files.
+- The optional `--depth N`/`-d N` flag limits how deep directory traversal should recurse. When omitted, traversal is unbounded.
+- Flags must appear **after** all inputs; a leading `--depth` or unknown flag results in an error.
+- Each path is validated before processing. Missing paths are listed and cause the command to exit with a non-zero status.
 
-If the input path does not exist or an unknown flag is provided, the program prints an error message and exits with a non-zero status.
+If any input path does not exist or an unknown flag is provided, the program prints an error message and exits with a non-zero status.
 
 ### Output format
 
@@ -42,7 +44,13 @@ Index a single file:
 cargo run -- README.md
 ```
 
-Index a directory but only descend two levels deep:
+Index multiple inputs and emit a single combined JSON document:
+
+```bash
+cargo run -- docs notes/guide.md blog_posts
+```
+
+Index a directory but only descend two levels deep (note the depth flag trails the inputs):
 
 ```bash
 cargo run -- docs --depth 2
