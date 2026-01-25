@@ -62,6 +62,39 @@ Redirect the JSON output to a file for later processing:
 cargo run -- notes > index.json
 ```
 
+## Library usage
+
+The parser is also exposed as a library if you want to integrate it into your own Rust application. Add the crate to your `Cargo.toml` (use a path dependency when working from a local checkout, or swap in a published version if you depend on crates.io):
+
+```toml
+[dependencies]
+mdparser-exp = { path = "/path/to/markdown-indexer" }
+```
+
+Then call `index_markdown` to receive the parsed sections and adapt them to your needs:
+
+```rust
+use mdparser_exp::index_markdown;
+
+fn main() -> Result<(), markdown::message::Message> {
+    let src = "# Title\n\nSome text with `inline` code.";
+    let sections = index_markdown(src)?;
+
+    for section in sections {
+        println!("{} (level {})", section.title, section.level);
+        println!("Paragraphs: {}", section.body_text.len());
+        println!(
+            "Code blocks: {}",
+            section.code_blocks.iter().map(|cb| &cb.value).count()
+        );
+    }
+
+    Ok(())
+}
+```
+
+If you want the same JSON shape as the CLI, build your own `JsonDocumentElement` values from the returned sections (see `src/main.rs` for the conversion logic).
+
 ## Development
 
 The main CLI entrypoint lives in [`src/main.rs`](src/main.rs). The parser utilities are provided by the `mdparser_exp` crate dependencies declared in [`Cargo.toml`](Cargo.toml). There are no additional runtime requirements.
