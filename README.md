@@ -68,7 +68,7 @@ The parser is also exposed as a library if you want to integrate it into your ow
 
 ```toml
 [dependencies]
-mdparser-exp = { path = "/path/to/markdown-indexer" }
+mdparser-exp = { git = "https://github.com/jslambda/markdown-indexer" }
 ```
 
 Then call `index_markdown` to receive the parsed sections and adapt them to your needs:
