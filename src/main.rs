@@ -1,5 +1,5 @@
 // file name: main.rs
-use mdparser_exp::{JsonDocumentElement, index_markdown};
+use markdown2json::{JsonDocumentElement, index_markdown};
 use serde_json;
 use std::{
     env, fs, io,
