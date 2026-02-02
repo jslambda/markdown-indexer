@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["Hamid Alavi Toussi"]
 license = "MIT"
 repository = "https://github.com/jslambda/markdown-indexer"
+description = "Reads a markdown file or directory of markdown documents and emits a structured JSON"
 
 [dependencies]
 markdown = "1.0.0"
