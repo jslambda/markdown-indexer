@@ -1,6 +1,6 @@
-# markdown-indexer
+# markdown2json
 
-`markdown-indexer` is a small CLI that walks a markdown file or directory of markdown documents and emits a structured JSON index. It is useful for creating searchable corpora of notes, documentation, or blog posts without writing a custom crawler.
+`markdown2json` is a small CLI that walks a markdown file or directory of markdown documents and emits a structured JSON index. It is useful for creating searchable corpora of notes, documentation, or blog posts without writing a custom crawler.
 
 ## Installation
 
@@ -10,7 +10,7 @@ This project is built with Rust. To build and run it you need a recent [Rust too
 cargo build --release
 ```
 
-The compiled binary will be available at `target/release/mdparser-exp`.
+The compiled binary will be available at `target/release/markdown2json`.
 
 ## Usage
 
@@ -68,13 +68,13 @@ The parser is also exposed as a library if you want to integrate it into your ow
 
 ```toml
 [dependencies]
-mdparser-exp = { git = "https://github.com/jslambda/markdown-indexer" }
+markdown2json = { git = "https://github.com/jslambda/markdown-indexer" }
 ```
 
 Then call `index_markdown` to receive the parsed sections and adapt them to your needs:
 
 ```rust
-use mdparser_exp::index_markdown;
+use markdown2json::index_markdown;
 
 fn main() -> Result<(), markdown::message::Message> {
     let src = "# Title\n\nSome text with `inline` code.";
@@ -97,4 +97,4 @@ If you want the same JSON shape as the CLI, build your own `JsonDocumentElement`
 
 ## Development
 
-The main CLI entrypoint lives in [`src/main.rs`](src/main.rs). The parser utilities are provided by the `mdparser_exp` crate dependencies declared in [`Cargo.toml`](Cargo.toml). There are no additional runtime requirements.
+The main CLI entrypoint lives in [`src/main.rs`](src/main.rs). The parser utilities are provided by the `markdown2json` crate dependencies declared in [`Cargo.toml`](Cargo.toml). There are no additional runtime requirements.
