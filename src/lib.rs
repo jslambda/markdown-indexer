@@ -20,11 +20,18 @@ pub struct Section {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct JsonCodeBlock {
+    pub value: String,
+    pub start_line: Option<usize>,
+    pub end_line: Option<usize>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct JsonDocumentElement {
     pub file_path: String,
     pub header: String,
     pub text_blocks: Vec<String>,
-    pub code_blocks: Vec<String>,
+    pub code_blocks: Vec<JsonCodeBlock>,
     pub start_line: Option<usize>,
     pub end_line: Option<usize>,
     pub heading_line: Option<usize>,
@@ -296,6 +303,7 @@ fn collect_text(node: &mdast::Node, out: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn heading_paragraph_and_code_are_grouped_into_one_section() {
@@ -485,5 +493,32 @@ Paragraph with `first` inline code and `second` snippet.
         assert_eq!(preamble.start_line, Some(1));
         assert_eq!(preamble.end_line, Some(1));
         assert_eq!(preamble.heading_line, None);
+    }
+
+    #[test]
+    fn json_document_element_serializes_code_block_line_metadata() {
+        let doc = JsonDocumentElement {
+            file_path: "doc.md".to_string(),
+            header: "Intro".to_string(),
+            text_blocks: vec!["Body".to_string()],
+            code_blocks: vec![JsonCodeBlock {
+                value: "println!(\"hi\");".to_string(),
+                start_line: Some(10),
+                end_line: Some(12),
+            }],
+            start_line: Some(1),
+            end_line: Some(12),
+            heading_line: Some(1),
+        };
+
+        let value = serde_json::to_value(&doc).expect("serialize");
+        assert_eq!(
+            value["code_blocks"][0],
+            json!({
+                "value": "println!(\"hi\");",
+                "start_line": 10,
+                "end_line": 12
+            })
+        );
     }
 }
