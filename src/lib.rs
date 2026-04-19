@@ -4,6 +4,8 @@ pub struct CodeBlock {
     pub lang: Option<String>,
     pub meta: Option<String>,
     pub value: String,
+    pub start_line: Option<usize>,
+    pub end_line: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -12,6 +14,9 @@ pub struct Section {
     pub level: u8,
     pub body_text: Vec<String>,
     pub code_blocks: Vec<CodeBlock>,
+    pub start_line: Option<usize>,
+    pub end_line: Option<usize>,
+    pub heading_line: Option<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -20,6 +25,9 @@ pub struct JsonDocumentElement {
     pub header: String,
     pub text_blocks: Vec<String>,
     pub code_blocks: Vec<String>,
+    pub start_line: Option<usize>,
+    pub end_line: Option<usize>,
+    pub heading_line: Option<usize>,
 }
 
 use markdown::message::Message;
@@ -58,6 +66,9 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                     level: h.depth,
                     body_text: Vec::new(),
                     code_blocks: Vec::new(),
+                    start_line: node_start_line(node),
+                    end_line: node_end_line(node),
+                    heading_line: node_start_line(node),
                 });
             }
 
@@ -73,12 +84,16 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                     level: 0,
                     body_text: Vec::new(),
                     code_blocks: Vec::new(),
+                    start_line: node_start_line(node),
+                    end_line: node_end_line(node),
+                    heading_line: None,
                 });
 
                 if !sec.body_text.is_empty() {
                     //sec.body_text.push_str("\n\n");
                 }
                 sec.body_text.push(text);
+                update_section_end_line(sec, node_end_line(node));
 
                 collect_inline_code_blocks(node, &mut sec.code_blocks);
             }
@@ -90,7 +105,10 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                         lang: code.lang.clone(),
                         meta: code.meta.clone(),
                         value: code.value.clone(),
+                        start_line: node_start_line(node),
+                        end_line: node_end_line(node),
                     });
+                    update_section_end_line(sec, node_end_line(node));
                 } else {
                     // Code before any heading -> attach to a synthetic preamble section
                     let sec = Section {
@@ -101,7 +119,12 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                             lang: code.lang.clone(),
                             meta: code.meta.clone(),
                             value: code.value.clone(),
+                            start_line: node_start_line(node),
+                            end_line: node_end_line(node),
                         }],
+                        start_line: node_start_line(node),
+                        end_line: node_end_line(node),
+                        heading_line: None,
                     };
                     current = Some(sec);
                 }
@@ -113,16 +136,22 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                     lang: None,
                     meta: None,
                     value: code.value.clone(),
+                    start_line: node_start_line(node),
+                    end_line: node_end_line(node),
                 };
 
                 if let Some(sec) = current.as_mut() {
                     sec.code_blocks.push(inline_block);
+                    update_section_end_line(sec, node_end_line(node));
                 } else {
                     let sec = Section {
                         title: String::from("(preamble)"),
                         level: 0,
                         body_text: Vec::new(),
                         code_blocks: vec![inline_block],
+                        start_line: node_start_line(node),
+                        end_line: node_end_line(node),
+                        heading_line: None,
                     };
                     current = Some(sec);
                 }
@@ -173,12 +202,16 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
                         //sec.body_text.push_str("\n\n");
                     }
                     sec.body_text.push(text);
+                    update_section_end_line(sec, node_end_line(node));
                 } else {
                     let preamble = Section {
                         title: String::from("(preamble)"),
                         level: 0,
                         body_text: vec![text],
                         code_blocks: Vec::new(),
+                        start_line: node_start_line(node),
+                        end_line: node_end_line(node),
+                        heading_line: None,
                     };
                     current = Some(preamble);
                 }
@@ -199,6 +232,22 @@ pub fn index_markdown(src: &str) -> Result<Vec<Section>, Message> {
 
     Ok(sections)
 }
+
+fn node_start_line(node: &mdast::Node) -> Option<usize> {
+    node.position().map(|p| p.start.line)
+}
+
+fn node_end_line(node: &mdast::Node) -> Option<usize> {
+    node.position().map(|p| p.end.line)
+}
+
+fn update_section_end_line(section: &mut Section, candidate_end_line: Option<usize>) {
+    match (section.end_line, candidate_end_line) {
+        (Some(current), Some(candidate)) => section.end_line = Some(current.max(candidate)),
+        (None, Some(candidate)) => section.end_line = Some(candidate),
+        _ => {}
+    }
+}
 /// Collect human-readable text from a node (drops formatting, links, etc.).
 fn node_to_plain_text(node: &mdast::Node) -> String {
     let mut out = String::new();
@@ -212,6 +261,8 @@ fn collect_inline_code_blocks(node: &mdast::Node, out: &mut Vec<CodeBlock>) {
             lang: None,
             meta: None,
             value: code.value.clone(),
+            start_line: node_start_line(node),
+            end_line: node_end_line(node),
         }),
         _ => {
             if let Some(children) = node.children() {
@@ -395,13 +446,44 @@ Paragraph with `first` inline code and `second` snippet.
         assert_eq!(sections.len(), 1);
         let s = &sections[0];
 
-        let inline_values: Vec<&str> = s
-            .code_blocks
-            .iter()
-            .map(|cb| cb.value.as_str())
-            .collect();
+        let inline_values: Vec<&str> = s.code_blocks.iter().map(|cb| cb.value.as_str()).collect();
 
         assert!(inline_values.contains(&"first"));
         assert!(inline_values.contains(&"second"));
+    }
+
+    #[test]
+    fn section_and_code_block_line_metadata_are_captured() {
+        let src = "# Intro\nIntro paragraph.\n```rust\nfn main() {}\n```\n## Next\nTail text.\n";
+
+        let sections = index_markdown(src).expect("parse ok");
+        assert_eq!(sections.len(), 2);
+
+        let intro = &sections[0];
+        assert_eq!(intro.start_line, Some(1));
+        assert_eq!(intro.heading_line, Some(1));
+        assert_eq!(intro.end_line, Some(5));
+        assert_eq!(intro.code_blocks.len(), 1);
+        assert_eq!(intro.code_blocks[0].start_line, Some(3));
+        assert_eq!(intro.code_blocks[0].end_line, Some(5));
+
+        let next = &sections[1];
+        assert_eq!(next.start_line, Some(6));
+        assert_eq!(next.heading_line, Some(6));
+        assert_eq!(next.end_line, Some(7));
+    }
+
+    #[test]
+    fn preamble_section_has_no_heading_line_metadata() {
+        let src = "Preamble text.\n# Heading\nUnder heading.\n";
+
+        let sections = index_markdown(src).expect("parse ok");
+        assert_eq!(sections.len(), 2);
+
+        let preamble = &sections[0];
+        assert_eq!(preamble.title, "(preamble)");
+        assert_eq!(preamble.start_line, Some(1));
+        assert_eq!(preamble.end_line, Some(1));
+        assert_eq!(preamble.heading_line, None);
     }
 }

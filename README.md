@@ -35,6 +35,9 @@ The command prints a JSON array to `stdout`. Each element represents a header se
 - `header`: The section title.
 - `text_blocks`: An array of text paragraphs under the section.
 - `code_blocks`: An array of code block contents extracted from the section.
+- `start_line`: The 1-based line number where the section starts (inclusive).
+- `end_line`: The 1-based line number where the section ends (inclusive).
+- `heading_line`: The 1-based line number of the section heading. This is `null` for synthetic preamble sections created before the first heading.
 
 ### Examples
 

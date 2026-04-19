@@ -158,6 +158,9 @@ fn process_path(
                 header: s.title,
                 text_blocks: s.body_text,
                 code_blocks: s.code_blocks.into_iter().map(|cb| cb.value).collect(),
+                start_line: s.start_line,
+                end_line: s.end_line,
+                heading_line: s.heading_line,
             })
             .collect();
 
