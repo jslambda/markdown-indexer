@@ -187,10 +187,25 @@ fn is_markdown_file(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_args;
+    use super::{parse_args, process_path};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn unique_temp_markdown_path() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "markdown2json-test-{}-{}.md",
+            std::process::id(),
+            nanos
+        ))
     }
 
     #[test]
@@ -216,5 +231,29 @@ mod tests {
         let err = parse_args(&argv).expect_err("should error");
 
         assert!(err.contains("Unknown flag or flag placed before inputs"));
+    }
+
+    #[test]
+    fn process_path_emits_structured_code_blocks_with_line_metadata() {
+        let path = unique_temp_markdown_path();
+        let content = "# Intro\nBody text.\n```rust\nfn main() {}\n```\n";
+        fs::write(&path, content).expect("write temp markdown");
+
+        let mut docs = Vec::new();
+        process_path(&path, &mut docs, 0, None).expect("process markdown file");
+
+        assert_eq!(docs.len(), 1);
+        let doc = &docs[0];
+        assert_eq!(doc.file_path, path.to_string_lossy().to_string());
+        assert_eq!(doc.header, "Intro");
+        assert_eq!(doc.start_line, Some(1));
+        assert_eq!(doc.end_line, Some(5));
+        assert_eq!(doc.heading_line, Some(1));
+        assert_eq!(doc.code_blocks.len(), 1);
+        assert_eq!(doc.code_blocks[0].value, "fn main() {}");
+        assert_eq!(doc.code_blocks[0].start_line, Some(3));
+        assert_eq!(doc.code_blocks[0].end_line, Some(5));
+
+        fs::remove_file(path).expect("cleanup temp markdown");
     }
 }
