@@ -34,7 +34,13 @@ The command prints a JSON array to `stdout`. Each element represents a header se
 - `file_path`: Absolute or relative path to the source markdown file.
 - `header`: The section title.
 - `text_blocks`: An array of text paragraphs under the section.
-- `code_blocks`: An array of code block contents extracted from the section.
+- `code_blocks`: An array of code block objects extracted from the section. Each object has:
+  - `value`: code block text.
+  - `start_line`: 1-based line where that code block starts (inclusive).
+  - `end_line`: 1-based line where that code block ends (inclusive).
+- `start_line`: The 1-based line number where the section starts (inclusive).
+- `end_line`: The 1-based line number where the section ends (inclusive).
+- `heading_line`: The 1-based line number of the section heading. This is `null` for synthetic preamble sections created before the first heading.
 
 ### Examples
 
